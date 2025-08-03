@@ -5,14 +5,14 @@
             "name": "Debug Simple Server",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/simple_server/simple_server",
+            "program": "${workspaceFolder}/simple_server_client/simple_server/simple_server",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
                 {
                     "name": "LD_LIBRARY_PATH",
-                    "value": "${workspaceFolder}/install/usr/lib:${env:LD_LIBRARY_PATH}"
+                    "value": "${workspaceFolder}/simple_server_client/_build_install/install/usr/lib:${env:LD_LIBRARY_PATH}"
                 }
             ],
             "externalConsole": false,

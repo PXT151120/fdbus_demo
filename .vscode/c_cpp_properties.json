@@ -4,6 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
+                "${workspaceFolder}/simple_server_client/_build_install/install/usr/include/**",
                 "/usr/include/**"
             ],
             "defines": [],
