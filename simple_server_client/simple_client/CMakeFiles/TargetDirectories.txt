@@ -1,0 +1,3 @@
+/home/pxt/Projects/fdbus_demo/simple_server_client/simple_client/CMakeFiles/simple_client.dir
+/home/pxt/Projects/fdbus_demo/simple_server_client/simple_client/CMakeFiles/edit_cache.dir
+/home/pxt/Projects/fdbus_demo/simple_server_client/simple_client/CMakeFiles/rebuild_cache.dir

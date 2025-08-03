@@ -1,0 +1,1 @@
+/usr/bin/c++ -std=gnu++11 -Wall  -g -rdynamic CMakeFiles/fdbxclient.dir/home/pxt/Projects/fdbus_demo/fdbus/server/main_xclient.cpp.o -o fdbxclient  -Wl,-rpath,/home/pxt/Projects/fdbus_demo/simple_server_client/_build_install: -lpthread libfdbus.so -lpthread 
