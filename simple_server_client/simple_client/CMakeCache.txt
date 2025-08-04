@@ -224,15 +224,6 @@ simple_client_IS_TOP_LEVEL:STATIC=ON
 //Value Computed by CMake
 simple_client_SOURCE_DIR:STATIC=/home/pxt/Projects/fdbus_demo/simple_server_client/simple_client
 
-//Value Computed by CMake
-simple_server_BINARY_DIR:STATIC=/home/pxt/Projects/fdbus_demo/simple_server_client/simple_client
-
-//Value Computed by CMake
-simple_server_IS_TOP_LEVEL:STATIC=ON
-
-//Value Computed by CMake
-simple_server_SOURCE_DIR:STATIC=/home/pxt/Projects/fdbus_demo/simple_server_client/simple_client
-
 
 ########################
 # INTERNAL cache entries
