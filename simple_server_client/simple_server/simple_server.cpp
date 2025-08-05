@@ -1,5 +1,9 @@
 #include <iostream>
 #include <string>
+#include <cstdint>
+#include <cstdio>
+#include <chrono>
+#include <iomanip>
 #include "fdbus/fdbus.h"
 
 /*
@@ -74,11 +78,24 @@ enum EMsgId : uint8_t
     NTF_CJSON_TEST = 128,
 };
 
-class CSimpleServer;
-
 
 static CBaseWorker main_worker;
 
+
+std::string getTimestamp(void)
+{
+    auto now = std::chrono::system_clock::now();
+    auto now_time_t = std::chrono::system_clock::to_time_t(now);
+
+    std::tm local_tm = *std::localtime(&now_time_t);
+    std::ostringstream oss;
+    oss << std::put_time(&local_tm, "%H:%M:%S");
+    return oss.str();
+}
+
+
+
+class CSimpleServer;
 class CBroadcastTimer : public CMethodLoopTimer<CSimpleServer>
 {
 public:
@@ -112,25 +129,25 @@ private:
 
 void CSimpleServer::broadcastElapseTimer(CMethodLoopTimer<CSimpleServer> *timer)
 {
-    char raw_data[256];
-    memset(raw_data, '=', sizeof(raw_data));
-    raw_data[255] = '\0';
-    broadcast(NTF_ELAPSE_TIME, raw_data, 256, "raw_buffer");
+    // char raw_data[256];
+    // memset(raw_data, '=', sizeof(raw_data));
+    // raw_data[255] = '\0';
+    // broadcast(NTF_ELAPSE_TIME, raw_data, 256, "raw_buffer");
 }
 
 void CSimpleServer::onOnline(const CFdbOnlineInfo& info)
 {
-    FDB_LOG_I("[Server]: session up: %d, secure: %d\n", info.mSid, info.mQOS);
+    printf("[%s | Server]: session up: %d, secure: %d\n", getTimestamp().c_str(), info.mSid, info.mQOS);
     if (info.mFirstOrLast)
     {
-        FDB_LOG_I("[Server]: timer enabled\n");
+        printf("[%s | Server]: Timer enabled\n", getTimestamp().c_str());
         mTimer->enable();
     }
 }
 
 void CSimpleServer::onOffline(const CFdbOnlineInfo& info)
 {
-    FDB_LOG_I("[Server]: session shutdown: %d, secure: %d\n", info.mSid, info.mQOS);
+    printf("[%s | Server]: session shutdown: %d, secure: %d\n", getTimestamp().c_str(), info.mSid, info.mQOS);
     if (info.mFirstOrLast)
     {
         mTimer->disable();
@@ -146,13 +163,13 @@ void CSimpleServer::onInvoke(CBaseJob::Ptr &msg_ref)
     {
         case REQ_METADATA:
         {
-            FDB_LOG_I("[Server]: onInvoke METADATA\n");
+            printf("[%s | Server]: onInvoke METADATA\n", getTimestamp().c_str());
             break;
         }
 
         case REQ_RAWDATA:
         {
-            FDB_LOG_I("[Server]: onInvoke RAWDATA: %s\n", (char*)msg->getPayloadBuffer());
+            printf("[%s | Server]: onInvoke RAWDATA: %s\n", getTimestamp().c_str(), (char*)msg->getPayloadBuffer());
             break;
         }
 
@@ -162,41 +179,41 @@ void CSimpleServer::onInvoke(CBaseJob::Ptr &msg_ref)
 
 void CSimpleServer::onSubscribe(CBaseJob::Ptr &msg_ref)
 {
-    auto msg = castToMessage<CFdbMessage *>(msg_ref);
-    const CFdbMsgSubscribeItem *sub_item;
+    // auto msg = castToMessage<CFdbMessage *>(msg_ref);
+    // const CFdbMsgSubscribeItem *sub_item;
 
-    FDB_BEGIN_FOREACH_SIGNAL(msg, sub_item)
-    {
-        FdbMsgCode_t msg_code = sub_item->msg_code();
-        const char *topic = "";
-        if (sub_item->has_topic())
-        {
-            topic = sub_item->topic().c_str();
-        }
-        FdbSessionId_t sid = msg->session();
-        FDB_LOG_I("single message %d, topic %s of session %d is registered! sender: %s\n\n", msg_code, topic, sid, msg->senderName().c_str());
-        switch (msg_code)
-        {
-            case NTF_ELAPSE_TIME:
-            {
-                std::string str_topic(topic);
-                if (!str_topic.compare("my_topic"))
-                {
-                    FDB_LOG_I("[Server]: my_topic");
-                }
-                else if (!str_topic.compare("raw_buffer"))
-                {
-                    FDB_LOG_I("[Server]: raw_buffer");
-                    std::string raw_data = "raw buffer test for broadcast.";
-                    msg->broadcast(NTF_ELAPSE_TIME, raw_data.c_str(), raw_data.length() + 1, "raw_buffer");
-                }
-                else{}
-            }
-            default:
-            break;
-        }
-    }
-    FDB_END_FOREACH_SIGNAL()
+    // FDB_BEGIN_FOREACH_SIGNAL(msg, sub_item)
+    // {
+    //     FdbMsgCode_t msg_code = sub_item->msg_code();
+    //     const char *topic = "";
+    //     if (sub_item->has_topic())
+    //     {
+    //         topic = sub_item->topic().c_str();
+    //     }
+    //     FdbSessionId_t sid = msg->session();
+    //     printf("single message %d, topic %s of session %d is registered! sender: %s\n\n", msg_code, topic, sid, msg->senderName().c_str());
+    //     switch (msg_code)
+    //     {
+    //         case NTF_ELAPSE_TIME:
+    //         {
+    //             std::string str_topic(topic);
+    //             if (!str_topic.compare("my_topic"))
+    //             {
+    //                 printf("SERVER_STRH: my_topic");
+    //             }
+    //             else if (!str_topic.compare("raw_buffer"))
+    //             {
+    //                 printf("SERVER_STRH: raw_buffer");
+    //                 std::string raw_data = "raw buffer test for broadcast.";
+    //                 msg->broadcast(NTF_ELAPSE_TIME, raw_data.c_str(), raw_data.length() + 1, "raw_buffer");
+    //             }
+    //             else{}
+    //         }
+    //         default:
+    //         break;
+    //     }
+    // }
+    // FDB_END_FOREACH_SIGNAL()
 }
 
 CBroadcastTimer::CBroadcastTimer(CSimpleServer* server)
@@ -209,7 +226,7 @@ CBroadcastTimer::~CBroadcastTimer()
 
 int main(int argc, char** argv)
 {
-    std::cout << "[Server]: Main Function run ...\n";
+    printf("[%s | Server]: Main Function run ...\n", getTimestamp().c_str());
 
     FDB_CONTEXT->enableLogger(true);
     FDB_CONTEXT->start();
@@ -234,7 +251,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        std::cout << "Input name for name_server!!!\n";
+        printf("Input name for name_server!!!\n");
     }
 
     return 0;

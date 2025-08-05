@@ -1,5 +1,8 @@
 #include <iostream>
 #include <cstdint>
+#include <cstdio>
+#include <chrono>
+#include <iomanip>
 #include "fdbus/fdbus.h"
 
 using namespace ipc::fdbus;
@@ -23,6 +26,17 @@ enum EMsgId : uint8_t
 
     NTF_CJSON_TEST = 128,
 };
+
+std::string getTimestamp(void)
+{
+    auto now = std::chrono::system_clock::now();
+    auto now_time_t = std::chrono::system_clock::to_time_t(now);
+
+    std::tm local_tm = *std::localtime(&now_time_t);
+    std::ostringstream oss;
+    oss << std::put_time(&local_tm, "%H:%M:%S");
+    return oss.str();
+}
 
 
 class CSimpleClient;
@@ -61,28 +75,31 @@ private:
 
 void CSimpleClient::callServer(CMethodLoopTimer<CSimpleClient> *timer)
 {
-    std::cout << "[Client]: callServer is called\n";
-    invoke(REQ_RAWDATA);
+    static char lData = 0;
+    printf("[%s | Client]: Send raw data: %d\n", getTimestamp().c_str(), lData);
+
+    char *buffer = new char;
+    snprintf(buffer, 255, "lData: %d", lData++);
+    invoke(REQ_RAWDATA, buffer, 255, 10);
+    delete buffer;
 }
 
 void CSimpleClient::onOnline(const CFdbOnlineInfo &info)
 {
-    FDB_LOG_I("[Client]: session online: %d, secure: %d\n", info.mSid, info.mQOS);
+    printf("[%s | Client]: session online: %d, secure: %d\n", getTimestamp().c_str(), info.mSid, info.mQOS);
     mTimer->enable();
+    // CFdbMsgSubscribeList subscribe_list;
+    // subscribe_list.addNotifyItem(NTF_ELAPSE_TIME, "my_topic");
+    // subscribe_list.addNotifyItem(NTF_ELAPSE_TIME, "raw_buffer");
+    // subscribe_list.addNotifyItem(NTF_CJSON_TEST);
+    // subscribe_list.addNotifyGroup(MEDIA_GROUP_1);
 
-    CFdbMsgSubscribeList subscribe_list;
-    subscribe_list.addNotifyItem(NTF_ELAPSE_TIME, "my_topic");
-    subscribe_list.addNotifyItem(NTF_ELAPSE_TIME, "raw_buffer");
-    subscribe_list.addNotifyItem(NTF_CJSON_TEST);
-    subscribe_list.addNotifyGroup(MEDIA_GROUP_1);
-
-    subscribe(subscribe_list, 0, info.mQOS);
+    // subscribe(subscribe_list, 0, info.mQOS);
 }
 
 void CSimpleClient::onOffline(const CFdbOnlineInfo &info)
 {
-    FDB_LOG_I("[Client]: session shutdown: %d, secure: %d\n", info.mSid, info.mQOS);
-
+    printf("[%s | Client]: session shutdown: %d, secure: %d\n", getTimestamp().c_str(), info.mSid, info.mQOS);
     if (info.mFirstOrLast)
     {
         mTimer->disable();
@@ -93,35 +110,34 @@ void CSimpleClient::onOffline(const CFdbOnlineInfo &info)
 void CSimpleClient::onBroadcast(CBaseJob::Ptr &msg_ref)
 {
     auto msg = castToMessage<CBaseMessage *>(msg_ref);
-    FDB_LOG_I("[Client]: Broadcast is received: %d; topic: %s, qos: %d\n", msg->code(), msg->topic().c_str(), msg->qos());
+    // printf("[Client]: Broadcast is received: %d; topic: %s, qos: %d\n", msg->code(), msg->topic().c_str(), msg->qos());
 
-    switch (msg->code())
-    {
-        case NTF_ELAPSE_TIME:
-        {
-            std::string topic {msg->topic()};
-            if (!topic.compare("my_topic"))
-            {
-                FDB_LOG_I("[Client]: elapse time is received: hour: %d, minute: %d, second: %d\n",
-                                    et.hour(), et.minute(), et.second());
-            }
-            else if (!topic.compare("raw_buffer"))
-            {
-                char *buffer = new char;
-                memcpy(buffer, (char*)msg->getPayloadBuffer(), msg->getPayloadSize());
-                FDB_LOG_I("[Client]: Broadcast of raw_buffer: %d\n", buffer);
-                delete buffer;
-            }
-            else{}
-            break;
-        }
-        case NTF_CJSON_TEST:
-        {
-            FDB_LOG_I("[Client]: Broadcast with JSON\n");
-            break;
-        }
-        default:    break;
-    }
+    // switch (msg->code())
+    // {
+    //     case NTF_ELAPSE_TIME:
+    //     {
+    //         std::string topic {msg->topic()};
+    //         if (!topic.compare("my_topic"))
+    //         {
+    //             printf("[Client]: elapse time is received\n");
+    //         }
+    //         else if (!topic.compare("raw_buffer"))
+    //         {
+    //             char *buffer = new char;
+    //             memcpy(buffer, (char*)msg->getPayloadBuffer(), msg->getPayloadSize());
+    //             printf("[Client]: Broadcast of raw_buffer: %s\n", buffer);
+    //             delete buffer;
+    //         }
+    //         else{}
+    //         break;
+    //     }
+    //     case NTF_CJSON_TEST:
+    //     {
+    //         printf("[Client]: Broadcast with JSON\n");
+    //         break;
+    //     }
+    //     default:    break;
+    // }
 }
 
 void CSimpleClient::onKickDog(CBaseJob::Ptr &msg_ref)
@@ -132,10 +148,23 @@ void CSimpleClient::onKickDog(CBaseJob::Ptr &msg_ref)
                         });
 }
 
+
+/* called when client call asynchronous version of invoke() and reply() is called at server
+
+
+client                  server
+
+invoke  ->              onInvoke
+                            |
+                            v
+onReply        <-       autoReply
+(if server does not call reply in timeout time -> FDB_ST_TIMEOUT)
+
+*/
 void CSimpleClient::onReply(CBaseJob::Ptr &msg_ref)
 {
     auto msg = castToMessage<CBaseMessage *>(msg_ref);
-    FDB_LOG_I("[Client]: response is received. sn = %d\n", msg->sn());
+    printf("[%s | Client]: onReply, sn = %d\n", getTimestamp().c_str(), msg->sn());
 
     switch(msg->code())
     {
@@ -150,15 +179,15 @@ void CSimpleClient::onReply(CBaseJob::Ptr &msg_ref)
 
                     if (!msg->decodeStatus(error_code, reason))
                     {
-                        FDB_LOG_I("[Client]: fail to decode status\n");
+                        printf("[Client]: fail to decode status\n");
                         return;
                     }
-                    FDB_LOG_I("[Client]: onReply(): status is received: msg code : %d, error_code: %d, reason: %s\n",
+                    printf("[Client]: onReply(): status is received: msg code : %d, error_code: %d, reason: %s\n",
                         msg->code(), error_code, reason.c_str());
                 }
                 return;
             }
-            FDB_LOG_I("[Client]: onReply of METADATA");
+            printf("[Client]: onReply of METADATA");
             break;
         }
 
@@ -173,15 +202,15 @@ void CSimpleClient::onReply(CBaseJob::Ptr &msg_ref)
 
                     if (!msg->decodeStatus(error_code, reason))
                     {
-                        FDB_LOG_I("[Client]: fail to decode status\n");
+                        printf("[Client]: fail to decode status\n");
                         return;
                     }
-                    FDB_LOG_I("[Client]: onReply(): status is received: msg code : %d, error_code: %d, reason: %s\n",
+                    printf("[Client]: onReply(): status is received: msg code : %d, error_code: %d, reason: %s\n",
                         msg->code(), error_code, reason.c_str());
                 }
                 return;
             }
-            FDB_LOG_I("[Client]: onReply of RAWDATA: %s\n", (char*)msg->getPayloadBuffer());
+            printf("[Client]: onReply of RAWDATA: %s\n", (char*)msg->getPayloadBuffer());
             break;
         }
 
@@ -197,10 +226,10 @@ void CSimpleClient::onStatus(CBaseJob::Ptr &msg_ref, int32_t error_code, const c
     {
         if (!msg->isError())
         {
-            FDB_LOG_I("[Client]: subscribe is ok! sn: %d is received.\n", msg->sn());
+            printf("[Client]: subscribe is ok! sn: %d is received.\n", msg->sn());
         }
     }
-    FDB_LOG_I("[Client]: Reason: %s\n", description);
+    printf("[%s | Client]: Reason: %s\n", getTimestamp().c_str(), description);
 }
 
 CInvokeTimer::CInvokeTimer(CSimpleClient* client)
@@ -213,7 +242,7 @@ CInvokeTimer::~CInvokeTimer()
 
 int main (int argc, char** argv)
 {
-    std::cout << "[Client]: Main Function run ...\n";
+    printf("[%s | Client]: Main Function run ...\n", getTimestamp().c_str());
 
     FDB_CONTEXT->start();
 
@@ -223,7 +252,7 @@ int main (int argc, char** argv)
         {
             for (auto it = dropped_list.begin(); it != dropped_list.end(); ++it)
             {
-                FDB_LOG_F("Error!!! Endpoint drops - name: %s, pid: %d\n", it->mClientName.c_str(), it->mPid);
+                printf("Error!!! Endpoint drops - name: %s, pid: %d\n", it->mClientName.c_str(), it->mPid);
             }
         });
 
@@ -248,7 +277,7 @@ int main (int argc, char** argv)
     }
     else
     {
-        std::cout << "Input name for name_server !!!\n";
+        printf("Input name for name_server !!!\n");
     }
 
     return 0;
